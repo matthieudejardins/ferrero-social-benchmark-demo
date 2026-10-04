@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ferrero Social Benchmark</title>
+<!-- Ferrero France social benchmark: demo page for the Meta App Review screencast (NextUser). -->
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c1e21; --muted:#606770; --line:#dadde1; --pri:#1877f2; --ok:#1f7a3f; --err:#b3261e; }
+  * { box-sizing:border-box } body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, Segoe UI, Roboto, sans-serif }
+  main { max-width:760px; margin:0 auto; padding:24px 16px }
+  h1 { font-size:24px; margin:0 0 4px } .sub { color:var(--muted); margin:0 0 20px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:16px }
+  .step { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:8px }
+  button { background:var(--pri); color:#fff; border:0; border-radius:6px; padding:10px 16px; font-size:15px; cursor:pointer; min-height:44px }
+  button.sec { background:#e4e6eb; color:var(--ink) } button:disabled { opacity:.45; cursor:default }
+  select, input { font-size:15px; padding:9px 10px; border:1px solid var(--line); border-radius:6px; min-height:44px; width:100% }
+  .row { display:flex; gap:8px; flex-wrap:wrap } .row > * { flex:1 1 220px }
+  .note { background:#fff8e1; border:1px solid #f0d58c; border-radius:8px; padding:10px 12px; font-size:14px }
+  .status { font-size:14px; color:var(--muted); margin-top:8px } .status.err { color:var(--err) } .status.ok { color:var(--ok) }
+  .prof { display:flex; gap:14px; align-items:center } .prof img { width:72px; height:72px; border-radius:50%; object-fit:cover; background:#eee }
+  .stats { display:flex; gap:24px; margin:12px 0; flex-wrap:wrap } .stats b { display:block; font-size:22px; font-variant-numeric:tabular-nums }
+  .media { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px }
+  .media div { border:1px solid var(--line); border-radius:8px; padding:10px; font-size:13px }
+  code { background:#eef0f3; padding:1px 5px; border-radius:4px }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ferrero France · Social Benchmark</h1>
+  <p class="sub">Organic benchmark of Ferrero France brand accounts (Nutella, Kinder, Ferrero Rocher, Tic Tac…) against the public Instagram accounts of their direct competitors. Built by NextUser, Ferrero France's social media agency.</p>
+  <p class="note">Internal use by the Ferrero France social media team and its agency. We read public metrics (followers, posts, likes and comments counts) of brand professional accounts through the Business Discovery API. Nothing is published, resold, or used for advertising targeting. No personal account and no user comment text is accessed.</p>
+
+  <section class="card">
+    <div class="step">Step 1 · Log in with Facebook</div>
+    <button id="login">Continue with Facebook</button>
+    <div id="s1" class="status">Permissions requested: instagram_basic, pages_show_list, pages_read_engagement, business_management.</div>
+  </section>
+
+  <section class="card">
+    <div class="step">Step 2 · Choose the Ferrero brand Page and its Instagram professional account</div>
+    <select id="page" disabled><option>Log in first</option></select>
+    <div id="s2" class="status">Uses pages_show_list and pages_read_engagement to list your Pages and their linked Instagram account.</div>
+  </section>
+
+  <section class="card">
+    <div class="step">Step 3 · Compare with a competitor brand account</div>
+    <div class="row"><input id="user" placeholder="Competitor Instagram username, e.g. milka_fr" disabled><button id="go" disabled>Search</button></div>
+    <div class="row" style="margin-top:8px"><button id="demo" class="sec" disabled>Run benchmark (4 competitors)</button></div>
+    <div id="s3" class="status">Uses instagram_basic (Business Discovery).</div>
+  </section>
+
+  <section id="bench"></section>
+  <section id="out"></section>
+</main>
+<script>
+const P = new URLSearchParams(location.search);
+const APP = P.get("app") || "1989622118085731", V = "v21.0";
+const DEMO = (P.get("demo") || "milka_fr,lindtfrance,bonnemaman_fr,haribofr_officiel").split(",");
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const n = (x) => (x ?? 0).toLocaleString("en-US");
+const say = (id, msg, cls = "") => { $(id).textContent = msg; $(id).className = "status " + cls; };
+const SCOPES = "instagram_basic,pages_show_list,pages_read_engagement,business_management";
+// 04/10 : connexion par redirection OAuth (plus de fenetre du SDK) : Facebook revient sur cette page avec le jeton ou avec
+// le texte exact de l'erreur, affiche ci-dessous. Aucun jeton n'est stocke hors de la session de l'onglet.
+let TOKEN = sessionStorage.getItem("fb_token") || "";
+const api = async (path, params = {}) => {
+  const u = new URL(`https://graph.facebook.com/${V}${path}`);
+  Object.entries({ ...params, access_token: TOKEN }).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u); const d = await r.json();
+  if (d.error) throw new Error(`${d.error.message} (code ${d.error.code}${d.error.error_subcode ? "/" + d.error.error_subcode : ""})`);
+  return d;
+};
+const REDIRECT = location.origin + location.pathname;
+if (location.protocol !== "https:") say("s1", "Facebook Login requires HTTPS: open this page over https://.", "err");
+else say("s1", `App ${APP}. Permissions requested: ${SCOPES.split(",").join(", ")}.`);
+$("login").onclick = () => {
+  sessionStorage.setItem("fb_qs", location.search);
+  const u = new URL(`https://www.facebook.com/${V}/dialog/oauth`);
+  Object.entries({ client_id: APP, redirect_uri: REDIRECT, scope: SCOPES, response_type: "token", state: String(Date.now()) }).forEach(([k, v]) => u.searchParams.set(k, v));
+  location.href = u.toString();
+};
+(() => {   // retour de Facebook : #access_token=... ou ?error=...&error_description=...
+  const h = new URLSearchParams(location.hash.slice(1)), q = new URLSearchParams(location.search);
+  const err = h.get("error_description") || q.get("error_description") || h.get("error_message") || q.get("error_message");
+  if (err || q.get("error") || h.get("error")) {
+    say("s1", `Facebook a refuse la connexion : ${err || ""} [${q.get("error") || h.get("error") || ""} ${q.get("error_reason") || h.get("error_reason") || ""} ${q.get("error_code") || ""}]`, "err");
+  } else if (h.get("access_token")) {
+    TOKEN = h.get("access_token"); sessionStorage.setItem("fb_token", TOKEN);
+    const back = sessionStorage.getItem("fb_qs") || ""; history.replaceState(null, "", location.pathname + back);
+  }
+  if (TOKEN) afterLogin({ authResponse: true });
+})();
+async function afterLogin(r) {
+  if (!r.authResponse) return say("s1", `Login not completed (status: ${r.status || "unknown"}).`, "err");
+  say("s1", "Logged in.", "ok");
+  try {
+    const d = await api("/me/accounts", { fields: "name,instagram_business_account{id,username}", limit: 100 });
+    const pages = (d.data || []).filter((p) => p.instagram_business_account);
+    if (!pages.length) return say("s2", "No Page with a linked Instagram professional account.", "err");
+    $("page").innerHTML = pages.map((p) => `<option value="${esc(p.instagram_business_account.id)}">${esc(p.name)} · @${esc(p.instagram_business_account.username)}</option>`).join("");
+    const fer = pages.findIndex((p) => /ferrero|nutella|kinder|tic ?tac|rocher|delacre/i.test(p.name + " " + p.instagram_business_account.username));
+    if (fer >= 0) $("page").selectedIndex = fer;
+    $("page").disabled = $("user").disabled = $("go").disabled = $("demo").disabled = false;
+    say("s2", `${pages.length} Page(s) with an Instagram professional account.`, "ok");
+  } catch (e) { say("s2", e.message, "err"); }
+}
+
+const ROWS = [];
+async function hostRow() {   // compte de la marque Ferrero choisie (instagram_basic) : point de reference du benchmark
+  try { const h = await api(`/${$("page").value}`, { fields: "username,followers_count,media_count" });
+    return { u: h.username, f: h.followers_count, m: h.media_count, own: true }; } catch (e) { return null; }
+}
+function bench() {
+  if (!ROWS.length) return;
+  const max = Math.max(...ROWS.map((r) => r.f || 0)) || 1;
+  $("bench").innerHTML = `<section class="card"><div class="step">Benchmark · followers and posts</div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">${ROWS.map((r) => `<tr style="border-top:1px solid var(--line)">
+      <td style="padding:6px 4px;white-space:nowrap">${r.own ? "<b>" : ""}@${esc(r.u)}${r.own ? "</b> (Ferrero)" : ""}</td>
+      <td style="width:50%;padding:6px 4px"><div style="height:10px;border-radius:4px;background:${r.own ? "var(--pri)" : "#8d949e"};width:${Math.max(2, 100 * (r.f || 0) / max)}%"></div></td>
+      <td style="text-align:right;padding:6px 4px;font-variant-numeric:tabular-nums">${n(r.f)}</td>
+      <td style="text-align:right;padding:6px 4px;font-variant-numeric:tabular-nums;color:var(--muted)">${n(r.m)} posts</td></tr>`).join("")}</table></section>`;
+}
+async function lookup(u) {
+  u = u.trim().replace(/^@/, ""); if (!u) return;
+  say("s3", `Looking up @${u}…`);
+  const f = "username,name,biography,website,followers_count,media_count,profile_picture_url,media.limit(3){caption,timestamp,like_count,comments_count,media_type,permalink}";
+  try {
+    const d = await api(`/${$("page").value}`, { fields: `business_discovery.username(${u}){${f}}` });
+    const b = d.business_discovery, m = (b.media && b.media.data) || [];
+    $("out").insertAdjacentHTML("afterbegin", `<section class="card"><div class="prof">${b.profile_picture_url ? `<img src="${esc(b.profile_picture_url)}" alt="">` : ""}<div><b>${esc(b.name || b.username)}</b><div class="status">@${esc(b.username)}${b.website ? " · " + esc(b.website) : ""}</div></div></div>
+      <div class="stats"><div><b>${n(b.followers_count)}</b>followers</div><div><b>${n(b.media_count)}</b>posts</div></div>
+      ${b.biography ? `<p>${esc(b.biography)}</p>` : ""}
+      <div class="media">${m.map((x) => `<div><b>${esc(x.media_type)}</b> · ${esc((x.timestamp || "").slice(0, 10))}<br>${n(x.like_count)} likes · ${n(x.comments_count)} comments<br>${esc((x.caption || "").slice(0, 90))}</div>`).join("")}</div></section>`);
+    if (!ROWS.length) { const h = await hostRow(); if (h) ROWS.push(h); }
+    if (!ROWS.some((r) => r.u === b.username)) ROWS.push({ u: b.username, f: b.followers_count, m: b.media_count });
+    bench();
+    say("s3", `@${u} loaded.`, "ok");
+  } catch (e) { say("s3", `@${u}: ${e.message}`, "err"); }
+}
+$("go").onclick = () => lookup($("user").value);
+$("user").onkeydown = (e) => { if (e.key === "Enter") lookup($("user").value); };
+$("demo").onclick = async () => {   // remplit le champ lettre par lettre puis lance la recherche : lisible dans la video
+  $("demo").disabled = true;
+  for (const u of DEMO) {
+    $("user").value = "";
+    for (const ch of u) { $("user").value += ch; await new Promise((r) => setTimeout(r, 90)); }
+    await new Promise((r) => setTimeout(r, 500)); await lookup(u); await new Promise((r) => setTimeout(r, 2500));
+  }
+  $("demo").disabled = false;
+};
+</script>
+</body>
+</html>
