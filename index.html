@@ -33,7 +33,7 @@
   <section class="card">
     <div class="step">Step 1 · Log in with Facebook</div>
     <button id="login">Continue with Facebook</button>
-    <div id="s1" class="status">Permissions requested: instagram_basic, pages_show_list, pages_read_engagement, business_management.</div>
+    <div id="s1" class="status">Permissions requested: instagram_basic, instagram_manage_insights, pages_show_list, pages_read_engagement, business_management.</div>
   </section>
 
   <section class="card">
@@ -46,7 +46,7 @@
     <div class="step">Step 3 · Compare with a competitor brand account</div>
     <div class="row"><input id="user" placeholder="Competitor Instagram username, e.g. milka_fr" disabled><button id="go" disabled>Search</button></div>
     <div class="row" style="margin-top:8px"><button id="demo" class="sec" disabled>Run benchmark (4 competitors)</button></div>
-    <div id="s3" class="status">Uses instagram_basic (Business Discovery).</div>
+    <div id="s3" class="status">Uses instagram_basic and instagram_manage_insights (Business Discovery).</div>
   </section>
 
   <section id="bench"></section>
@@ -60,7 +60,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const n = (x) => (x ?? 0).toLocaleString("en-US");
 const say = (id, msg, cls = "") => { $(id).textContent = msg; $(id).className = "status " + cls; };
-const SCOPES = "instagram_basic,pages_show_list,pages_read_engagement,business_management";
+const SCOPES = "instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement,business_management";
 // 04/10 : connexion par redirection OAuth (plus de fenetre du SDK) : Facebook revient sur cette page avec le jeton ou avec
 // le texte exact de l'erreur, affiche ci-dessous. Aucun jeton n'est stocke hors de la session de l'onglet.
 let TOKEN = sessionStorage.getItem("fb_token") || "";
