@@ -77,7 +77,7 @@ else say("s1", `App ${APP}. Permissions requested: ${SCOPES.split(",").join(", "
 $("login").onclick = () => {
   sessionStorage.setItem("fb_qs", location.search);
   const u = new URL(`https://www.facebook.com/${V}/dialog/oauth`);
-  Object.entries({ client_id: APP, redirect_uri: REDIRECT, scope: SCOPES, response_type: "token", state: String(Date.now()) }).forEach(([k, v]) => u.searchParams.set(k, v));
+  Object.entries({ client_id: APP, redirect_uri: REDIRECT, scope: SCOPES, response_type: "token", auth_type: "rerequest", state: String(Date.now()) }).forEach(([k, v]) => u.searchParams.set(k, v));
   location.href = u.toString();
 };
 (() => {   // retour de Facebook : #access_token=... ou ?error=...&error_description=...
